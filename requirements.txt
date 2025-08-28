@@ -1,0 +1,9 @@
+python-pptx
+pillow
+pytesseract
+sentence-transformers
+faiss-cpu
+fastapi
+uvicorn[standard]
+groq
+python-dotenv

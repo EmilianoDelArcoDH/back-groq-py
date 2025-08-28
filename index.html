@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Asistente Curso PPT + RAG + Groq</title>
+  <link href="https://cdn.jsdelivr.net/npm/prismjs/themes/prism.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs/components/prism-python.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f4f4; margin:0; padding:20px; }
+    h1 { text-align:center; color:#2c3e50; }
+    #chat { max-width:700px; margin:20px auto; background:#fff; border-radius:8px; padding:20px; box-shadow:0 0 10px rgba(0,0,0,.1); }
+    #messages { min-height:200px; margin-bottom:20px; padding:10px; border:1px solid #ccc; border-radius:6px; overflow-y:auto; background:#fafafa; }
+    .msg { margin:10px 0; padding:8px 12px; border-radius:6px; max-width:80%; }
+    .user { background:#3498db; color:#fff; margin-left:auto; }
+    .bot { background:#ecf0f1; color:#2c3e50; margin-right:auto; }
+    #input-area { display:flex; gap:10px; }
+    #user-input { flex:1; padding:10px; }
+    button { padding:10px 20px; background:#2ecc71; border:none; border-radius:6px; color:#fff; font-weight:bold; cursor:pointer; }
+    button:hover { background:#27ae60; }
+    /* 🟢 que el código se vea full ancho dentro del bubble */
+    .msg pre { white-space: pre-wrap; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <h1>Asistente del Curso</h1>
+  <div id="chat">
+    <div id="messages"></div>
+    <div id="input-area">
+      <input id="user-input" type="text" placeholder="Escribe tu pregunta..." />
+      <button onclick="enviarPregunta()">Preguntar</button>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:9000"; // backend
+
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${API_URL}/health`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        console.log("Health:", data);
+      } catch (e) {
+        console.error("Error health:", e);
+      }
+    }
+
+    // 🟢 util: si el backend NO envía respuesta_html, formateo fences ```python ... ```
+    function fallbackFormatCodeFences(text) {
+      // muy simple: solo detecta ```python ... ``` y cierra en ```
+      const regex = /```python([\s\S]*?)```/g;
+      return text.replace(regex, (_m, code) =>
+        `<pre><code class="language-python">${escapeHtml(code.trim())}</code></pre>`
+      );
+    }
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function enviarPregunta() {
+      const input = document.getElementById("user-input");
+      const pregunta = input.value.trim();
+      if (!pregunta) return;
+
+      mostrarMensaje("user", pregunta); // texto plano
+      input.value = "";
+
+      try {
+        const res = await fetch(`${API_URL}/ask`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pregunta, clase: null })
+        });
+
+        if (!res.ok) {
+          const txt = await res.text();
+          mostrarMensaje("bot", `Error: ${res.status} ${txt}`);
+          return;
+        }
+
+        const data = await res.json();
+        // 🟢 preferí la versión HTML si viene del backend; si no, hago fallback
+        const html = data.respuesta_html
+          ? data.respuesta_html
+          : fallbackFormatCodeFences(data.answer || "Sin respuesta.");
+
+        mostrarMensajeHTML("bot", html);  // 🟢 inyecta HTML y resalta
+        if (data.fuentes && data.fuentes.length > 0) {
+          mostrarMensaje("bot", "Fuentes: " + data.fuentes.map(f => `Clase ${f[0]}, Slide ${f[1]}`).join("; "));
+        }
+      } catch (err) {
+        console.error(err);
+        mostrarMensaje("bot", "Error al conectar con el servidor.");
+      }
+    }
+
+    function mostrarMensaje(tipo, texto) {
+      const div = document.createElement("div");
+      div.className = "msg " + tipo;
+      div.textContent = texto;
+      const cont = document.getElementById("messages");
+      cont.appendChild(div);
+      div.scrollIntoView();
+    }
+
+    // 🟢 versión HTML (para bloques <pre><code>)
+    function mostrarMensajeHTML(tipo, html) {
+      const div = document.createElement("div");
+      div.className = "msg " + tipo;
+      div.innerHTML = html;
+      const cont = document.getElementById("messages");
+      cont.appendChild(div);
+      // 🟢 pedir a Prism que resalte dentro del nuevo mensaje
+      if (window.Prism) Prism.highlightAllUnder(div);
+      div.scrollIntoView();
+    }
+
+    // check inicial
+    checkHealth();
+  </script>
+</body>
+</html>
