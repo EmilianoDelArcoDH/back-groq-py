@@ -37,14 +37,16 @@ SYSTEM_MSG = (
 
 app = FastAPI(title="PPT-RAG-Groq")
 
-if CORS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=CORS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+CORS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+origins = CORS or ["https://runner-py-ia.vercel.app"]  # fallback sano
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=False,        # True solo si usas cookies/Authorization
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # -------------------------
 # Modelos de entrada
