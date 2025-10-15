@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 ENV OCR_ENABLED=false \
-    CORS_ORIGINS="http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS="http://localhost:5173,http://localhost:3000,https://runner-py-ia.vercel.app"
 
 EXPOSE 8000
 CMD ["uvicorn", "servidor:app", "--host", "0.0.0.0", "--port", "8000"]
